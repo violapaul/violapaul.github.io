@@ -1,0 +1,21 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linear Algebra Solver</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Linear Algebra Solver</h1>
+    <p>Enter two linear equations in the format ax + by = c:</p>
+    <input type="text" id="eq1" value="5x+y=0">
+    <input type="text" id="eq2" value="x-5y=0">
+    <button onclick="plotEquations()">Plot Equations</button>
+    <div id="plotArea"></div>
+    <div id="solutionDisplay"></div>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
