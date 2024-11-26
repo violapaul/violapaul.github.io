@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selected Skippers - Vendée Globe</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        .error {
+            color: red;
+            text-align: center;
+            padding: 20px;
+        }
+        .country-flag {
+            height: 20px;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+        .last-update {
+            text-align: right;
+            color: #666;
+            font-style: italic;
+        }
+        .highlighted {
+            background-color: #fff3e0;
+        }
+        .cache-status {
+            text-align: right;
+            color: #666;
+            font-style: italic;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 4px;
+        }
+        
+        .cache-status button {
+            margin-left: 10px;
+            padding: 4px 8px;
+            font-size: 0.9em;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .cache-status button:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Selected Women Skippers - Vendée Globe</h1>
+    <div id="lastUpdate" class="last-update"></div>
+    <div id="rankings">
+        <p class="loading">Loading rankings...</p>
+    </div>
+    
+    <h2>Betting Results</h2>
+    <div id="bettingResults">
+        <p class="loading">Loading betting results...</p>
+    </div>
+
+    <hr style="margin-top: 30px;">
+    <div id="cacheStatus" class="cache-status"></div>
+
+    <script>
+        // Configuration
+        const USE_LOCAL_FILE = true;  // Set to false to use API instead
+        const LOCAL_FILE = 'rankings.json';
+        const API_URL = 'https://www.vendeeglobeapi.com/api/vgdata?apikey=cm3yu37u90000pdg6397aoaak';
+        const CACHE_DURATION = 60 * 60 * 1000; // 60 minutes in milliseconds
+
+        // Modified cache management functions
+        function saveToCache(key, data) {
+            const cacheEntry = {
+                timestamp: new Date().getTime(),
+                data: data
+            };
+            console.log(`Saving to ${key} cache at:`, formatDateTime(cacheEntry.timestamp));
+            localStorage.setItem(key, JSON.stringify(cacheEntry));
+        }
+
+        function getFromCache(key) {
+            const cached = localStorage.getItem(key);
+            if (!cached) {
+                console.log(`No cached data found for ${key}`);
+                return null;
+            }
+
+            const entry = JSON.parse(cached);
+            const now = new Date().getTime();
+            const age = (now - entry.timestamp) / 1000 / 60; // in minutes
+            
+            console.log(`Found ${key} cache from:`, formatDateTime(entry.timestamp));
+            console.log(`Cache age: ${age.toFixed(1)} minutes`);
+            
+            // Check if cache is still valid
+            if (now - entry.timestamp > CACHE_DURATION) {
+                console.log(`Cache expired (older than ${CACHE_DURATION/60000} minutes)`);
+                localStorage.removeItem(key);
+                return null;
+            }
+            
+            console.log(`Using valid ${key} cache`);
+            return entry; // Return the entire entry including timestamp
+        }
+
+        // Define selected skippers
+        const selectedSkippers = new Set([
+            'Samantha Davies',
+            'Justine Mettraux',
+            'Clarisse Crémer',
+            'Pip Hare',
+            'Isabelle Joschke',
+            'Violette Dorange'
+        ]);
+
+
+        // Modified computeInversions function with logging
+        function computeInversions(ranked_list, bet) {
+            let inversions = 0;
+            const n = ranked_list.length;
+            
+            console.log("Computing inversions:");
+            console.log("Ranked list:", ranked_list);
+            console.log("Bet:", bet);
+            
+            for (let i = 0; i < n; i++) {
+                for (let j = i + 1; j < n; j++) {
+                    const skipper1 = ranked_list[i];
+                    const skipper2 = ranked_list[j];
+                    
+                    const bet_pos1 = bet.indexOf(skipper1);
+                    const bet_pos2 = bet.indexOf(skipper2);
+                    
+                    if (bet_pos1 > bet_pos2) {
+                        inversions += 1;
+                    }
+                }
+            }
+            console.log("Total inversions:", inversions);
+            return inversions;
+        }
+
+        function formatDateTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        }
+
+        function updateCacheStatus(source, timestamp) {
+            const cacheStatusDiv = document.getElementById('cacheStatus');
+            const age = Math.round((new Date().getTime() - timestamp) / 60000);
+            
+            let statusHtml = `Data source: <strong>${source}</strong>`;
+            if (timestamp) {
+                statusHtml += ` (cached ${age} minutes ago at ${formatDateTime(timestamp)})`;
+            }
+            
+            statusHtml += `
+                <button onclick="clearCache()">
+                    Clear Cache
+                </button>`;
+                
+            cacheStatusDiv.innerHTML = statusHtml;
+        }
+
+        function clearCache() {
+            console.log('Clearing cache...');
+            localStorage.clear();
+            location.reload();
+        }
+
+        async function fetchBettingResults(actualRankings) {
+            try {
+                let bets;
+                const cachedBets = getFromCache('bets');
+                
+                if (cachedBets) {
+                    console.log('Using cached betting data');
+                    bets = cachedBets.data;
+                } else {
+                    console.log('Fetching fresh betting data');
+                    const response = await fetch('bets.json');
+                    if (!response.ok) {
+                        throw new Error('Error loading bets file');
+                    }
+                    bets = await response.json();
+                    
+                    // Save the new data to cache
+                    saveToCache('bets', bets);
+                }
+
+                // Get actual rankings order and log it
+                const rankedSkippers = actualRankings.map(boat => boat.Skipper_Boat);
+                console.log("Actual rankings order:", rankedSkippers);
+
+                // Process each bet and compute inversions
+                const processedBets = bets
+                    // .filter(bet => bet.paid === 'Yes')
+                    .map(bet => {
+                        // Create ordered list of skippers based on bet
+                        const betOrder = Array(6).fill(null);
+                        for (const skipper of selectedSkippers) {
+                            const position = parseInt(bet[skipper]) - 1;
+                            betOrder[position] = skipper;
+                        }
+
+                        console.log("Processing bet:", bet.email);
+                        console.log("Bet order:", betOrder);
+
+                        const invCount = computeInversions(rankedSkippers, betOrder);
+                        return {
+                            email: bet.email,
+                            inversions: invCount,
+                            betAmount: bet.bet_amount,
+                            betOrder: betOrder
+                        };
+                    })
+                    .sort((a, b) => a.inversions - b.inversions);
+
+                // Create results table
+                const resultsDiv = document.getElementById('bettingResults');
+                const table = document.createElement('table');
+                const thead = document.createElement('thead');
+                const tbody = document.createElement('tbody');
+
+                thead.innerHTML = `
+                    <tr>
+                        <th>Email</th>
+                        <th>Inversions</th>
+                        <th>Bet Amount</th>
+                        <th>Predicted Order</th>
+                    </tr>
+                `;
+
+                processedBets.forEach(bet => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${bet.email}</td>
+                        <td>${bet.inversions}</td>
+                        <td>$${bet.betAmount}</td>
+                        <td>${bet.betOrder.join(' → ')}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                table.appendChild(thead);
+                table.appendChild(tbody);
+                resultsDiv.innerHTML = '';
+                resultsDiv.appendChild(table);
+
+            } catch (error) {
+                console.error("Error in fetchBettingResults:", error);
+                document.getElementById('bettingResults').innerHTML = `
+                    <p class="error">Error loading betting results: ${error.message}</p>
+                `;
+            }
+        }
+
+        async function fetchRankings() {
+            const rankingsDiv = document.getElementById('rankings');
+            const lastUpdateDiv = document.getElementById('lastUpdate');
+            
+            try {
+                let data;
+                let dataSource = 'Live API';
+                let cacheTimestamp = null;
+                
+                const cachedData = getFromCache('rankings');
+                
+                if (cachedData) {
+                    console.log('Using cached rankings data from:', formatDateTime(cachedData.timestamp));
+                    data = cachedData.data;
+                    dataSource = 'Cache';
+                    cacheTimestamp = cachedData.timestamp;
+                } else {
+                    console.log('Fetching fresh rankings data');
+                    if (USE_LOCAL_FILE) {
+                        const response = await fetch(LOCAL_FILE);
+                        if (!response.ok) {
+                            throw new Error('Error loading local file');
+                        }
+                        data = await response.json();
+                        dataSource = 'Local File';
+                    } else {
+                        const response = await fetch(API_URL);
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        data = await response.json();
+                    }
+                    
+                    // Save the new data to cache
+                    saveToCache('rankings', data);
+                }
+
+                // Update cache status in UI
+                updateCacheStatus(dataSource, cacheTimestamp);
+
+                // Filter only selected skippers
+                const raceData = data.latestdata.data.filter(boat => 
+                    selectedSkippers.has(boat.Skipper_Boat)
+                );
+                
+                lastUpdateDiv.textContent = `Rankings Last Updated by Vendée Globe: ${data.latestdata.lastUpdate}`;
+                
+                // Create table
+                const table = document.createElement('table');
+                const thead = document.createElement('thead');
+                const tbody = document.createElement('tbody');
+                
+                thead.innerHTML = `
+                    <tr>
+                        <th>Rank</th>
+                        <th>Country</th>
+                        <th>Skipper & Boat</th>
+                        <th>Distance to Finish</th>
+                        <th>Distance to Leader</th>
+                        <th>Speed (24h)</th>
+                        <th>Distance (24h)</th>
+                    </tr>
+                `;
+                
+                // Sort by rank
+                raceData.sort((a, b) => Number(a.Rank) - Number(b.Rank));
+                
+                raceData.forEach(boat => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${boat.Rank}</td>
+                        <td>
+                            <img src="${boat.CountryFlag}" class="country-flag" alt="${boat.Country}">
+                            ${boat.Country}
+                        </td>
+                        <td>${boat.Skipper_Boat}<br>${boat.Boat}</td>
+                        <td>${boat.DTF}</td>
+                        <td>${boat.DTL}</td>
+                        <td>${boat.Speed_24h}</td>
+                        <td>${boat.Distance_24h}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+                table.appendChild(thead);
+                table.appendChild(tbody);
+                
+                rankingsDiv.innerHTML = '';
+                rankingsDiv.appendChild(table);
+                
+                // After successfully loading rankings, fetch betting results
+                await fetchBettingResults(raceData);
+                
+            } catch (error) {
+                console.error('Error in fetchRankings:', error);
+                rankingsDiv.innerHTML = `
+                    <p class="error">Error loading rankings: ${error.message}</p>
+                `;
+            }
+        }
+
+        // Fetch rankings when page loads
+        fetchRankings();
+
+        // Only set up interval refresh if using API
+        if (!USE_LOCAL_FILE) {
+            setInterval(fetchRankings, 5 * 60 * 1000);
+        }
+    </script>
+</body>
+</html>
