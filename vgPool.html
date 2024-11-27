@@ -75,80 +75,65 @@
             background-color: #f0f0f0;
         }
 
+        .skipper-lines {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .skipper {
+            flex: 1;
+            min-width: 30%;
+            padding: 10px;
+            box-sizing: border-box;
+            text-align: center;
+            background: #f8f8f8;
+            border-radius: 4px;
+        }
+
         /* Add responsive styles */
         @media screen and (max-width: 768px) {
             body {
-                padding: 10px;
+                padding: 15px;
             }
 
-            /* Stack table cells vertically on mobile */
-            table, thead, tbody, tr, th, td {
+            table {
                 display: block;
-            }
-
-            thead tr {
-                position: absolute;
-                top: -9999px;
-                left: -9999px;
-            }
-
-            tr {
-                margin-bottom: 1rem;
-                border: 1px solid #ddd;
-                padding: 8px;
-                border-radius: 4px;
-            }
-
-            td {
-                border: none;
-                position: relative;
-                padding: 4px 4px 4px 50%;
-                text-align: right;
-            }
-
-            td:before {
-                position: absolute;
-                left: 6px;
-                content: attr(data-label);
-                text-align: left;
-                font-weight: bold;
-            }
-
-            /* Hide less important columns on mobile */
-            .hide-mobile {
-                display: none;
-            }
-
-            /* Make betting results more compact */
-            #bettingResults td {
-                padding: 4px;
-                font-size: 0.9em;
-            }
-
-            .show-mobile {
-                display: inline;
-            }
-
-            .hide-mobile {
-                display: none;
-            }
-
-            /* Make rows more compact on mobile */
-            td {
-                padding: 4px 4px 4px 40%;
+                overflow-x: auto;
                 white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                width: 100%;
             }
 
-            /* Reduce left padding for rank column */
-            td[data-label="Rank"] {
-                padding-left: 30%;
+            th, td {
+                white-space: nowrap;
+                text-align: left;
+                padding: 12px;
+                font-size: 0.95em;
+            }
+            
+            tr {
+                display: table-row; /* Prevent tr wrapping */
+                line-height: 1.5;
+            }
+
+            .cache-status button {
+                display: block;
+                width: 100%;
+                margin-top: 10px;
+            }
+
+            .hide-mobile {
+                display: none;
             }
         }
 
-        .show-mobile {
-            display: none;
+        @media screen and (max-width: 600px) {
+            .highlighted {
+                padding: 8px;
+                font-size: 0.9em;
+            }
         }
     </style>
 </head>
@@ -169,6 +154,12 @@
 
     <hr style="margin-top: 30px;">
     <div id="cacheStatus" class="cache-status"></div>
+
+    <div class="skipper-lines">
+        <div class="skipper">Line 1</div>
+        <div class="skipper">Line 2</div>
+        <div class="skipper">Line 3</div>
+    </div>
 
     <script>
         // Configuration
@@ -510,19 +501,8 @@
                 raceData.forEach(boat => {
                     const row = document.createElement('tr');
                     const flag = countryToFlag[boat.Country] || '🏳️';
-                    const skipperName = boat.Skipper_Boat.split(' - ')[0]; // Get just the skipper name
-                    row.innerHTML = `
-                        <td data-label="Rank">${boat.Rank}</td>
-                        <td data-label="Skipper">
-                            <span style="font-size: 1.2em; margin-right: 8px;">${flag}</span>
-                            <span class="hide-mobile">${boat.Skipper_Boat}</span>
-                            <span class="show-mobile">${skipperName}</span>
-                        </td>
-                        <td data-label="DTF">${boat.DTF}</td>
-                        <td data-label="DTL" class="hide-mobile">${boat.DTL}</td>
-                        <td data-label="Speed" class="hide-mobile">${boat.Speed_24h}</td>
-                        <td data-label="24h" class="hide-mobile">${boat.Distance_24h}</td>
-                    `;
+                    const skipperName = boat.Skipper_Boat.split(' - ')[0];
+                    row.innerHTML = `<td>${boat.Rank}</td><td><span class="hide-mobile">${flag}</span>${skipperName}</td><td>${boat.DTF}</td><td class="hide-mobile">${boat.DTL}</td><td class="hide-mobile">${boat.Speed_24h}</td><td class="hide-mobile">${boat.Distance_24h}</td>`;
                     tbody.appendChild(row);
                 });
                 
