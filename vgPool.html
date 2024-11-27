@@ -124,6 +124,31 @@
                 padding: 4px;
                 font-size: 0.9em;
             }
+
+            .show-mobile {
+                display: inline;
+            }
+
+            .hide-mobile {
+                display: none;
+            }
+
+            /* Make rows more compact on mobile */
+            td {
+                padding: 4px 4px 4px 40%;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            /* Reduce left padding for rank column */
+            td[data-label="Rank"] {
+                padding-left: 30%;
+            }
+        }
+
+        .show-mobile {
+            display: none;
         }
     </style>
 </head>
@@ -485,11 +510,13 @@
                 raceData.forEach(boat => {
                     const row = document.createElement('tr');
                     const flag = countryToFlag[boat.Country] || '🏳️';
+                    const skipperName = boat.Skipper_Boat.split(' - ')[0]; // Get just the skipper name
                     row.innerHTML = `
                         <td data-label="Rank">${boat.Rank}</td>
                         <td data-label="Skipper">
                             <span style="font-size: 1.2em; margin-right: 8px;">${flag}</span>
-                            ${boat.Skipper_Boat}
+                            <span class="hide-mobile">${boat.Skipper_Boat}</span>
+                            <span class="show-mobile">${skipperName}</span>
                         </td>
                         <td data-label="DTF">${boat.DTF}</td>
                         <td data-label="DTL" class="hide-mobile">${boat.DTL}</td>
