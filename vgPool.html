@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Selected Skippers - Vendée Globe</title>
+    <title>Vendée Globe Standings</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -77,8 +77,11 @@
     </style>
 </head>
 <body>
-    <h1>Selected Women Skippers - Vendée Globe</h1>
-    <div id="lastUpdate" class="last-update"></div>
+    <h1>Vendée Globe Standings</h1>
+    <div id="lastUpdate" class="last-update">
+        <span id="currentUpdate"></span>
+        <span id="nextUpdate"></span>
+    </div>
     <div id="rankings">
         <p class="loading">Loading rankings...</p>
     </div>
@@ -96,7 +99,45 @@
         const USE_LOCAL_FILE = false;  // Set to false to use API instead
         const LOCAL_FILE = 'rankings.json';
         const API_URL = 'https://www.vendeeglobeapi.com/api/vgdata?apikey=cm3yu37u90000pdg6397aoaak';
-        const CACHE_DURATION = 60 * 60 * 1000; // 60 minutes in milliseconds
+        const UPDATE_RAW = ['03:00', '07:00', '11:00', '15:00', '19:00', '23:00'];
+        const UPDATE_TIMES = UPDATE_RAW.map(t => {
+            const [hour, minute] = t.split(':').map(Number);
+            return hour * 60 + minute;
+        });        
+
+        function shouldFetchNewData(lastUpdateTime) {
+            if (!lastUpdateTime) return true;
+
+            // We fetch updates when they are *NEW*.  New updates are available at the UPDATE_TIMES.
+            // If we fetch at 10:00, there is a new one at 11:00.  At 10:30 there is no need to fetch.
+
+            // Ranking data contains a lastUpdate in French timezone (format 19h00)
+            const lastUpdateHour = parseInt(lastUpdateTime.split('h')[0]);
+            const lastUpdateMinute = parseInt(lastUpdateTime.split('h')[1]);
+
+            // Get current time in French timezone (UTC+1)
+            const now = new Date();
+            const minutesToFrance = now.getTimezoneOffset() + 60; // local offset + 1 hour for France
+            const frenchNow = new Date(now.getTime() + minutesToFrance * 60000); // convert minutes to milliseconds
+
+            // Debug logging of current time and French time
+            console.log('Current local time:', now.toLocaleString());
+            console.log('Current local time:', frenchNow.toLocaleString());
+            
+            const currentHour = frenchNow.getHours();
+            const currentMinute = frenchNow.getMinutes();
+            const currentTimeInMinutes = currentHour * 60 + currentMinute;
+            console.log('Current time in France:', `${currentHour}h${currentMinute}`);
+
+            let lastScheduledUpdate = UPDATE_TIMES[UPDATE_TIMES.length - 1];
+            for (const time of UPDATE_TIMES) {
+                if (time <= currentTimeInMinutes) {
+                    lastScheduledUpdate = time;
+                }
+            }
+            // Finally, if the last actual update is before the last scheduled update, we need new data.
+            return lastUpdateTime < lastScheduledUpdate;
+        }
 
         // Modified cache management functions
         function saveToCache(key, data) {
@@ -116,21 +157,16 @@
             }
 
             const entry = JSON.parse(cached);
-            const now = new Date().getTime();
-            const age = (now - entry.timestamp) / 1000 / 60; // in minutes
             
-            console.log(`Found ${key} cache from:`, formatDateTime(entry.timestamp));
-            console.log(`Cache age: ${age.toFixed(1)} minutes`);
-            
-            // Check if cache is still valid
-            if (now - entry.timestamp > CACHE_DURATION) {
-                console.log(`Cache expired (older than ${CACHE_DURATION/60000} minutes)`);
+            // For rankings, check if new data should be available
+            if (key === 'rankings' && shouldFetchNewData(entry.data.latestdata.lastUpdate)) {
+                console.log('New race update should be available, invalidating cache');
                 localStorage.removeItem(key);
                 return null;
             }
             
-            console.log(`Using valid ${key} cache`);
-            return entry; // Return the entire entry including timestamp
+            console.log(`Using valid ${key} cache from:`, formatDateTime(entry.timestamp));
+            return entry;
         }
 
         // Define selected skippers
@@ -175,7 +211,7 @@
             return date.toLocaleString();
         }
 
-        function updateCacheStatus(source, timestamp) {
+        function updateCacheStatus(source, timestamp, lastUpdate) {
             const cacheStatusDiv = document.getElementById('cacheStatus');
             const age = Math.round((new Date().getTime() - timestamp) / 60000);
             
@@ -184,12 +220,35 @@
                 statusHtml += ` (cached ${age} minutes ago at ${formatDateTime(timestamp)})`;
             }
             
+            // Add next update time info
+            if (lastUpdate) {
+                const nextUpdate = getNextUpdateTime(lastUpdate);
+                statusHtml += `<br>Next race update expected at: ${nextUpdate} (French time)`;
+            }
+            
             statusHtml += `
                 <button onclick="clearCache()">
                     Clear Cache
                 </button>`;
                 
             cacheStatusDiv.innerHTML = statusHtml;
+        }
+
+        function getNextUpdateTime(lastUpdate) {
+            // Convert French time format (19h00) to hour
+            const currentHour = parseInt(lastUpdate.split('h')[0]);
+            
+            // Find next update time
+            for (const updateTime of UPDATE_TIMES) {
+                // convert minutes to hours
+                const hour = Math.floor(updateTime / 60);
+                if (hour > currentHour) {
+                    return `${hour}h00`;
+                }
+            }
+            // If no later time found, return first time next day
+            const firstUpdateHour = Math.floor(UPDATE_TIMES[0] / 60);
+            return `${firstUpdateHour}h00`;
         }
 
         function clearCache() {
@@ -322,15 +381,18 @@
                     saveToCache('rankings', data);
                 }
 
-                // Update cache status in UI
-                updateCacheStatus(dataSource, cacheTimestamp);
+                // Update cache status with next update time
+                updateCacheStatus(dataSource, cacheTimestamp, data.latestdata.lastUpdate);
 
                 // Filter only selected skippers
                 const raceData = data.latestdata.data.filter(boat => 
                     selectedSkippers.has(boat.Skipper_Boat)
                 );
                 
-                lastUpdateDiv.textContent = `Rankings Last Updated by Vendée Globe: ${data.latestdata.lastUpdate}`;
+                lastUpdateDiv.innerHTML = `
+                    <span>Rankings Last Updated by Vendée Globe: ${data.latestdata.lastUpdate} (French time)</span>
+                    <span style="margin-left: 20px;">Next Update Expected: ${getNextUpdateTime(data.latestdata.lastUpdate)}</span>
+                `;
                 
                 // Create table
                 const table = document.createElement('table');
