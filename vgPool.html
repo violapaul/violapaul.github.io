@@ -74,6 +74,57 @@
         .cache-status button:hover {
             background-color: #f0f0f0;
         }
+
+        /* Add responsive styles */
+        @media screen and (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            /* Stack table cells vertically on mobile */
+            table, thead, tbody, tr, th, td {
+                display: block;
+            }
+
+            thead tr {
+                position: absolute;
+                top: -9999px;
+                left: -9999px;
+            }
+
+            tr {
+                margin-bottom: 1rem;
+                border: 1px solid #ddd;
+                padding: 8px;
+                border-radius: 4px;
+            }
+
+            td {
+                border: none;
+                position: relative;
+                padding: 4px 4px 4px 50%;
+                text-align: right;
+            }
+
+            td:before {
+                position: absolute;
+                left: 6px;
+                content: attr(data-label);
+                text-align: left;
+                font-weight: bold;
+            }
+
+            /* Hide less important columns on mobile */
+            .hide-mobile {
+                display: none;
+            }
+
+            /* Make betting results more compact */
+            #bettingResults td {
+                padding: 4px;
+                font-size: 0.9em;
+            }
+        }
     </style>
 </head>
 <body>
@@ -314,19 +365,19 @@
                 thead.innerHTML = `
                     <tr>
                         <th>Email</th>
-                        <th>Inversions</th>
-                        <th>Bet Amount</th>
-                        <th>Predicted Order</th>
+                        <th>Score</th>
+                        <th class="hide-mobile">Bet</th>
+                        <th class="hide-mobile">Prediction</th>
                     </tr>
                 `;
 
                 processedBets.forEach(bet => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${bet.email}</td>
-                        <td>${bet.inversions}</td>
-                        <td>$${bet.betAmount}</td>
-                        <td>${bet.betOrder.join(' → ')}</td>
+                        <td data-label="Email">${bet.email.split('@')[0]}</td>
+                        <td data-label="Score">${bet.inversions}</td>
+                        <td data-label="Bet" class="hide-mobile">$${bet.betAmount}</td>
+                        <td data-label="Prediction" class="hide-mobile">${bet.betOrder.join(' → ')}</td>
                     `;
                     tbody.appendChild(row);
                 });
@@ -402,12 +453,11 @@
                 thead.innerHTML = `
                     <tr>
                         <th>Rank</th>
-                        <th>Country</th>
-                        <th>Skipper & Boat</th>
-                        <th>Distance to Finish</th>
-                        <th>Distance to Leader</th>
-                        <th>Speed (24h)</th>
-                        <th>Distance (24h)</th>
+                        <th>Skipper</th>
+                        <th>DTF</th>
+                        <th class="hide-mobile">DTL</th>
+                        <th class="hide-mobile">Speed</th>
+                        <th class="hide-mobile">24h Dist</th>
                     </tr>
                 `;
                 
@@ -434,17 +484,17 @@
 
                 raceData.forEach(boat => {
                     const row = document.createElement('tr');
-                    const flag = countryToFlag[boat.Country] || '🏳️'; // Default to white flag if country not found
+                    const flag = countryToFlag[boat.Country] || '🏳️';
                     row.innerHTML = `
-                        <td>${boat.Rank}</td>
-                        <td>
+                        <td data-label="Rank">${boat.Rank}</td>
+                        <td data-label="Skipper">
                             <span style="font-size: 1.2em; margin-right: 8px;">${flag}</span>
+                            ${boat.Skipper_Boat}
                         </td>
-                        <td>${boat.Skipper_Boat}<br>${boat.Boat}</td>
-                        <td>${boat.DTF}</td>
-                        <td>${boat.DTL}</td>
-                        <td>${boat.Speed_24h}</td>
-                        <td>${boat.Distance_24h}</td>
+                        <td data-label="DTF">${boat.DTF}</td>
+                        <td data-label="DTL" class="hide-mobile">${boat.DTL}</td>
+                        <td data-label="Speed" class="hide-mobile">${boat.Speed_24h}</td>
+                        <td data-label="24h" class="hide-mobile">${boat.Distance_24h}</td>
                     `;
                     tbody.appendChild(row);
                 });
