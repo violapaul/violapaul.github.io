@@ -75,42 +75,6 @@
             background-color: #f0f0f0;
         }
 
-        .skipper-lines {
-            display: flex;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 20px;
-            margin: 30px 0;
-        }
-
-        .skipper {
-            flex: 1;
-            min-width: 200px;
-            padding: 15px;
-            box-sizing: border-box;
-            text-align: center;
-            background: #f8f8f8;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
-        }
-
-        .skipper:hover {
-            transform: translateY(-2px);
-        }
-
-        @media screen and (max-width: 768px) {
-            .skipper {
-                min-width: calc(50% - 10px);
-            }
-        }
-
-        @media screen and (max-width: 480px) {
-            .skipper {
-                min-width: 100%;
-            }
-        }
-
         /* Add responsive styles */
         @media screen and (max-width: 768px) {
             body {
@@ -172,12 +136,6 @@
 
     <hr style="margin-top: 30px;">
     <div id="cacheStatus" class="cache-status"></div>
-
-    <div class="skipper-lines">
-        <div class="skipper">Line 1</div>
-        <div class="skipper">Line 2</div>
-        <div class="skipper">Line 3</div>
-    </div>
 
     <script>
         // Configuration
@@ -565,29 +523,6 @@
                 
                 // After successfully loading rankings, fetch betting results
                 await fetchBettingResults(raceData);
-                
-                // Update skipper lines
-                const skipperLinesDiv = document.querySelector('.skipper-lines');
-                skipperLinesDiv.innerHTML = '';
-
-                // Add active skippers
-                raceData.forEach(boat => {
-                    const skipperName = boat.Skipper_Boat.split(' - ')[0];
-                    const flag = countryToFlag[boat.Country] || '🏳️';
-                    const div = document.createElement('div');
-                    div.className = 'skipper';
-                    div.innerHTML = `${flag} ${skipperName}<br>Rank: ${boat.Rank}`;
-                    skipperLinesDiv.appendChild(div);
-                });
-
-                // Add abandoned skippers
-                abandonedSkippers.forEach(skipper => {
-                    const div = document.createElement('div');
-                    div.className = 'skipper';
-                    div.style.backgroundColor = '#ffebee'; // Light red background
-                    div.innerHTML = `${skipper}<br><span style="color: #d32f2f;">Abandoned</span>`;
-                    skipperLinesDiv.appendChild(div);
-                });
                 
             } catch (error) {
                 console.error('Error in fetchRankings:', error);
