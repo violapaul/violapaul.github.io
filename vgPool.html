@@ -79,18 +79,36 @@
             display: flex;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 20px;
+            gap: 20px;
+            margin: 30px 0;
         }
 
         .skipper {
             flex: 1;
-            min-width: 30%;
-            padding: 10px;
+            min-width: 200px;
+            padding: 15px;
             box-sizing: border-box;
             text-align: center;
             background: #f8f8f8;
-            border-radius: 4px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .skipper:hover {
+            transform: translateY(-2px);
+        }
+
+        @media screen and (max-width: 768px) {
+            .skipper {
+                min-width: calc(50% - 10px);
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            .skipper {
+                min-width: 100%;
+            }
         }
 
         /* Add responsive styles */
@@ -165,7 +183,8 @@
         // Configuration
         const USE_LOCAL_FILE = false;  // Set to false to use API instead
         const LOCAL_FILE = 'rankings.json';
-        const API_URL = 'https://www.vendeeglobeapi.com/api/vgdata?apikey=cm3yu37u90000pdg6397aoaak';
+        const API_KEY = 'cm4vpqqd4000013s28hk9mbyg';
+        const API_URL = 'https://www.vendeeglobeapi.com/api/vgdata?apikey=' + API_KEY;
         const UPDATE_RAW = ['03:00', '07:00', '11:00', '15:00', '19:00', '23:00'];
         const UPDATE_TIMES = UPDATE_RAW.map(t => {
             const [hour, minute] = t.split(':').map(Number);
@@ -236,30 +255,42 @@
             return entry;
         }
 
-        // Define selected skippers
+        // Define selected skippers and their status
         const selectedSkippers = new Set([
             'Samantha Davies',
             'Justine Mettraux',
             'Clarisse Crémer',
-            'Pip Hare',
+            'Pip Hare',      // Abandoned
             'Isabelle Joschke',
             'Violette Dorange'
         ]);
 
+        // Define abandoned skippers in order of abandonment
+        const abandonedSkippers = [
+            'Pip Hare'
+        ];
 
-        // Modified computeInversions function with logging
+        // Helper function to check if a skipper has abandoned
+        function isAbandonedSkipper(skipperName) {
+            return abandonedSkippers.includes(skipperName);
+        }
+
+        // Modified computeInversions function with abandoned skipper handling
         function computeInversions(ranked_list, bet) {
             let inversions = 0;
             const n = ranked_list.length;
             
+            // Create complete ranking list including abandoned skippers at the end
+            const completeRankings = [...ranked_list, ...abandonedSkippers];
+            
             console.log("Computing inversions:");
-            console.log("Ranked list:", ranked_list);
+            console.log("Complete rankings (including abandoned):", completeRankings);
             console.log("Bet:", bet);
             
-            for (let i = 0; i < n; i++) {
-                for (let j = i + 1; j < n; j++) {
-                    const skipper1 = ranked_list[i];
-                    const skipper2 = ranked_list[j];
+            for (let i = 0; i < completeRankings.length; i++) {
+                for (let j = i + 1; j < completeRankings.length; j++) {
+                    const skipper1 = completeRankings[i];
+                    const skipper2 = completeRankings[j];
                     
                     const bet_pos1 = bet.indexOf(skipper1);
                     const bet_pos2 = bet.indexOf(skipper2);
@@ -344,9 +375,9 @@
                     saveToCache('bets', bets);
                 }
 
-                // Get actual rankings order and log it
+                // Get actual rankings order and add abandoned skippers at the end
                 const rankedSkippers = actualRankings.map(boat => boat.Skipper_Boat);
-                console.log("Actual rankings order:", rankedSkippers);
+                console.log("Active rankings order:", rankedSkippers);
 
                 // Process each bet and compute inversions
                 const processedBets = bets
@@ -498,11 +529,31 @@
                     'CAN': '🇨🇦',
                 };
 
+                // Add active skippers
                 raceData.forEach(boat => {
                     const row = document.createElement('tr');
                     const flag = countryToFlag[boat.Country] || '🏳️';
                     const skipperName = boat.Skipper_Boat.split(' - ')[0];
-                    row.innerHTML = `<td>${boat.Rank}</td><td><span class="hide-mobile">${flag}</span>${skipperName}</td><td>${boat.DTF}</td><td class="hide-mobile">${boat.DTL}</td><td class="hide-mobile">${boat.Speed_24h}</td><td class="hide-mobile">${boat.Distance_24h}</td>`;
+                    row.innerHTML = `
+                        <td>${boat.Rank}</td>
+                        <td><span class="hide-mobile">${flag}</span>${skipperName}</td>
+                        <td>${boat.DTF}</td>
+                        <td class="hide-mobile">${boat.DTL}</td>
+                        <td class="hide-mobile">${boat.Speed_24h}</td>
+                        <td class="hide-mobile">${boat.Distance_24h}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                // Add abandoned skippers
+                abandonedSkippers.forEach(skipperName => {
+                    const row = document.createElement('tr');
+                    row.style.backgroundColor = '#ffebee'; // Light red background
+                    row.innerHTML = `
+                        <td>-</td>
+                        <td>${skipperName}</td>
+                        <td colspan="4" style="color: #d32f2f;">Abandoned</td>
+                    `;
                     tbody.appendChild(row);
                 });
                 
@@ -514,6 +565,29 @@
                 
                 // After successfully loading rankings, fetch betting results
                 await fetchBettingResults(raceData);
+                
+                // Update skipper lines
+                const skipperLinesDiv = document.querySelector('.skipper-lines');
+                skipperLinesDiv.innerHTML = '';
+
+                // Add active skippers
+                raceData.forEach(boat => {
+                    const skipperName = boat.Skipper_Boat.split(' - ')[0];
+                    const flag = countryToFlag[boat.Country] || '🏳️';
+                    const div = document.createElement('div');
+                    div.className = 'skipper';
+                    div.innerHTML = `${flag} ${skipperName}<br>Rank: ${boat.Rank}`;
+                    skipperLinesDiv.appendChild(div);
+                });
+
+                // Add abandoned skippers
+                abandonedSkippers.forEach(skipper => {
+                    const div = document.createElement('div');
+                    div.className = 'skipper';
+                    div.style.backgroundColor = '#ffebee'; // Light red background
+                    div.innerHTML = `${skipper}<br><span style="color: #d32f2f;">Abandoned</span>`;
+                    skipperLinesDiv.appendChild(div);
+                });
                 
             } catch (error) {
                 console.error('Error in fetchRankings:', error);
